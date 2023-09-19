@@ -1,0 +1,335 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © prajapatibikesh29
+
+
+//@version=5
+indicator("Candle Stick - Weekdays Analysis", overlay = true, shorttitle = "CS- A")
+
+ATRLength = input.int(defval =  14, title = "ATR lenthf of Body" , minval = 9, maxval = 100 , step = 2, inline = 'ATR', group ="ATR Length")
+//user input for the number of instaces to check for green and red bars in given time frame
+NumberOfBars= input.int(title=" Weekday Bar Length", defval = 60, minval = 1, maxval = 200, step = 10, inline = 'length', group = " Bar Numbers ") 
+LookbackBars =  input.int(title="  Bar Length", defval = 100, minval = 100, maxval = 1000, step = 10, inline = 'length', group = " Bar Numbers ")
+
+var varBlTotal = input.bool(true, "Weekdays Total ", group = "Weekday", inline = "days")
+var varBlEMA = input.bool(true, "EMA ", group = "Chart")
+var varBlRSI = input.bool(true, "RSI ", group = "Chart")
+var varBlGapUp = input.bool(true, "Gap Up", group = "Gap")
+var varBlGapDown = input.bool(true, "Gap Down", group = "Gap")
+
+
+//ATR size for the body 
+ATR(length)=>
+    atr = ta.sma(math.abs(open - close),length)
+BodyRange() =>
+	math.abs(close - open)
+
+////////////////////////////////////////////////////   
+// Function to check if a bar is red and green
+/////////////////////////////////////////////////////
+isRedCandle() =>
+    close < open
+isGreenCandle() =>
+    close > open
+
+//Funtion to check the bar has top wick and bottom wick
+
+isTopwick() =>
+    math.abs(high - math.max(open, close))  > 0.20
+
+isBottomwick() =>
+   math.abs(math.min(open, close) - low) > 0.20
+
+//Fucntion to check the bar above ema or below ema
+isAboveEMA() =>
+    ema_a = ta.ema(close, 9) > close
+
+isBelowEMA() =>
+    ema_b = ta.ema(close, 9) < close
+
+isRSIHigh() =>
+   rsi_h = ta.rsi(close, 9) > 70
+
+isRSILow() =>
+    rsi_l = ta.rsi(close,9 ) < 30
+
+isGapUp() =>
+    math.abs(open- close[1]) > 0.1 and open > close[1] 
+isGapDown()=>
+    math.abs(close[1] - close) >0.1 and open < close[1] 
+
+// create variable for the postion of table x and y
+tableYposInput  = input.string("top", "Panel position", options = ["top", "middle", "bottom"])
+tableXposInput  = input.string("right", "", options = ["left", "center", "right"])
+
+//create a new table with height adn width of 10,7
+var table TTM   = table.new(tableYposInput + "_" + tableXposInput, 8, 15 , border_width=1)
+if barstate.isconfirmed
+    table.cell(TTM, 0, 0, "Candle  Analysis", text_color = color.new(color.white, 0), bgcolor = color.new(color.gray, 50))
+    table.cell(TTM, 1, 0, "Red", text_color = color.white, bgcolor =color.new(color.red, 50))
+    table.cell(TTM, 2, 0, "Green", text_color = color.white, bgcolor =color.new(color.green, 50))
+    table.cell(TTM, 3, 0, "Small", text_color = color.white, bgcolor =color.new(color.yellow, 50))
+    table.cell(TTM, 4, 0, "Avg", text_color = color.white, bgcolor =color.new(color.orange, 50))
+    table.cell(TTM, 5, 0, "large", text_color = color.white, bgcolor =  color.new(color.blue, 50))
+    table.cell(TTM, 6, 0, "Top", text_color = color.white, bgcolor = color.new(color.silver, 50) )
+    table.cell(TTM, 7, 0, "Bottom", text_color = color.white, bgcolor = color.new(color.gray, 50) )
+TC = color.black
+G_BG = color.green
+R_BG = color.red
+TS = 5 
+
+//For Ema above and below red and green counts 
+EMA_A_red = 0.0
+EMA_A_green = 0.0
+EMA_A_small = 0.0
+EMA_A_avg = 0.0
+EMA_A_large = 0.0
+EMA_A_top =0.0
+EMA_A_bottom = 0.0
+EMA_B_red = 0.0
+EMA_B_green = 0.0
+EMA_B_small = 0.0
+EMA_B_avg = 0.0
+EMA_B_large = 0.0
+EMA_B_top =0.0
+EMA_B_bottom = 0.0
+//For RSI High and low red and green counts 
+RSI_H_red = 0.0
+RSI_H_green = 0.0
+RSI_H_small = 0.0
+RSI_H_avg = 0.0
+RSI_H_large = 0.0
+RSI_H_top =0.0
+RSI_H_bottom = 0.0
+RSI_L_red = 0.0
+RSI_L_green = 0.0
+RSI_L_small = 0.0
+RSI_L_avg = 0.0
+RSI_L_large = 0.0
+RSI_L_top =0.0
+RSI_L_bottom = 0.0
+
+// GAP Up  and Down counts 
+GAP_U_red = 0.0
+GAP_U_green = 0.0
+GAP_U_small = 0.0
+GAP_U_avg = 0.0
+GAP_U_large = 0.0
+GAP_U_top =0.0
+GAP_U_bottom = 0.0
+GAP_D_red = 0.0
+GAP_D_green = 0.0
+GAP_D_small = 0.0
+GAP_D_avg = 0.0
+GAP_D_large = 0.0
+GAP_D_top =0.0
+GAP_D_bottom = 0.0
+
+// for total counts for Friday charts
+for j = 2 to 6 by 1
+// Loop through week days
+    total_red  = 0.0
+    total_green = 0.0
+    total_small = 0.0
+    total_avg = 0.0
+    total_large = 0.0
+    total_top = 0.0
+    total_bottom = 0.0
+    days = 'n'
+  // Check if it's a new trading day
+    for i =  0 to NumberOfBars by 1
+        if dayofweek(time)[i] == j      
+            ATR = ATR(ATRLength)[i]
+            candleSize = BodyRange()[i]
+            if isGreenCandle()[i]
+                total_green += 1
+            else if isRedCandle()[i]   // red counts
+                total_red += 1   
+            // Determine candle size category
+            if candleSize < ATR * 0.75
+                total_small += 1
+            else if candleSize >= ATR * 0.75 and candleSize <= ATR * 1.25
+                total_avg += 1
+            else if  candleSize > ATR * 1.25
+                total_large += 1
+                // Determine wick location
+            if isTopwick()[i]
+                total_top += 1
+            if isBottomwick()[i] 
+                total_bottom += 1
+        // coverting the numbers to string for week days
+        /// (1 = Sun, 2 = mon, 3 = Tue, and so on..... to 7 = sat) 
+            if j == 2
+                days := "Mon"
+            else if j == 3
+                days := "Tue"
+            else if j == 4
+                days := "Wed"
+            else if j == 5
+                days := "Thu"
+            else if j == 6
+                days := "Fri"
+            if varBlTotal == true
+                table.cell(TTM, 0, j, days + " Total", text_color = color.new(color.white, 0), bgcolor = color.new(color.teal, 50))
+                table.cell(TTM, 1, j, str.tostring (total_red), text_color = TC, bgcolor = color.aqua )
+                table.cell(TTM, 2, j, str.tostring (total_green), text_color = TC, bgcolor = color.aqua)
+                table.cell(TTM, 3, j, str.tostring (total_small), text_color = TC, bgcolor = color.aqua )
+                table.cell(TTM, 4, j, str.tostring (total_avg), text_color = TC, bgcolor = color.aqua)
+                table.cell(TTM, 5, j, str.tostring (total_large), text_color = TC, bgcolor = color.aqua )
+                table.cell(TTM, 6, j, str.tostring (total_top), text_color = TC, bgcolor = color.aqua)
+                table.cell(TTM, 7, j, str.tostring (total_bottom), text_color = TC, bgcolor = color.aqua)
+
+
+for i = 0 to LookbackBars by 1
+    if varBlEMA == true
+        ATR = ATR(ATRLength)[i]
+        candleSize = BodyRange()[i]
+        if isAboveEMA()[i] and isRedCandle()[i]
+            EMA_A_red += 1
+        else if isAboveEMA()[i] and isGreenCandle()[i]
+            EMA_A_green += 1
+        if isAboveEMA()[i] and candleSize < ATR * 0.75
+            EMA_A_small += 1
+        else if isAboveEMA()[i] and candleSize >= ATR * 0.75 and candleSize <= ATR *  1.25
+            EMA_A_avg += 1
+        else if isAboveEMA()[i] and candleSize > ATR * 1.25
+            EMA_A_large += 1
+        if isAboveEMA()[i] and isTopwick()[i]
+            EMA_A_top += 1
+        if isAboveEMA()[i] and isBottomwick()[i]
+            EMA_A_bottom += 1
+        else if isBelowEMA()[i] and isRedCandle()[i]
+            EMA_B_red+= 1
+        else if isBelowEMA()[i] and isGreenCandle()[i]
+            EMA_B_green += 1 
+        if isBelowEMA()[i] and candleSize < ATR * 0.75
+            EMA_B_small += 1
+        else if isBelowEMA()[i] and candleSize >= ATR * 0.75 and candleSize <= ATR *  1.25
+            EMA_B_avg += 1
+        else if isBelowEMA()[i] and candleSize > ATR * 1.25
+            EMA_B_large += 1
+        if isBelowEMA()[i] and isTopwick()[i]
+            EMA_B_top += 1
+        if isBelowEMA()[i] and isBottomwick()[i]
+            EMA_B_bottom += 1
+        if i == LookbackBars
+            table.cell(TTM, 0, 7, "EMA Above Bar", text_color = color.new(color.white, 0), bgcolor = color.new(color.teal, 50))
+            table.cell(TTM, 1, 7, str.tostring (EMA_A_red), text_color = TC, bgcolor = color.rgb(247, 131, 131) )
+            table.cell(TTM, 2, 7, str.tostring (EMA_A_green), text_color = TC, bgcolor = color.rgb(130, 187, 132))
+            table.cell(TTM, 3, 7, str.tostring (EMA_A_small), text_color = TC, bgcolor = color.rgb(243, 242, 177))
+            table.cell(TTM, 4, 7, str.tostring (EMA_A_avg), text_color = TC, bgcolor = color.rgb(245, 224, 184))
+            table.cell(TTM, 5, 7, str.tostring (EMA_A_large), text_color = TC, bgcolor = color.rgb(186, 195, 248))
+            table.cell(TTM, 6, 7, str.tostring (EMA_A_top), text_color = TC, bgcolor = color.rgb(145, 144, 144))
+            table.cell(TTM, 7, 7, str.tostring (EMA_A_bottom), text_color = TC, bgcolor = color.rgb(101, 101, 102))
+            //next ROW
+            table.cell(TTM, 0, 8, "EMA Below Bar", text_color = color.new(color.white, 0), bgcolor = color.new(color.teal, 50))
+            table.cell(TTM, 1, 8, str.tostring (EMA_B_red), text_color = TC, bgcolor = color.rgb(247, 209, 209) )
+            table.cell(TTM, 2, 8, str.tostring (EMA_B_green), text_color = TC, bgcolor = color.rgb(182, 211, 183))
+            table.cell(TTM, 3, 8, str.tostring (EMA_B_small), text_color = TC, bgcolor = color.rgb(243, 242, 177))
+            table.cell(TTM, 4, 8, str.tostring (EMA_B_avg), text_color = TC, bgcolor = color.rgb(245, 224, 184))
+            table.cell(TTM, 5, 8, str.tostring (EMA_B_large), text_color = TC, bgcolor = color.rgb(186, 195, 248))
+            table.cell(TTM, 6, 8, str.tostring (EMA_B_top), text_color = TC, bgcolor = color.rgb(145, 144, 144))
+            table.cell(TTM, 7, 8, str.tostring (EMA_B_bottom), text_color = TC, bgcolor = color.rgb(101, 101, 102))
+
+    if varBlRSI == true
+        ATR = ATR(ATRLength)[i]
+        candleSize = BodyRange()[i]
+        if isRSIHigh()[i] and isRedCandle()[i]
+            RSI_H_red += 1
+        else if isRSIHigh()[i] and isGreenCandle()[i]
+            RSI_H_green += 1
+        if isRSIHigh()[i] and candleSize < ATR * 0.75
+            RSI_H_small += 1
+        else if isRSIHigh()[i] and candleSize >= ATR * 0.75 and candleSize <= ATR *  1.25
+            RSI_H_avg += 1
+        else if isRSIHigh()[i] and candleSize > ATR * 1.25
+            RSI_H_large += 1
+        if isRSIHigh()[i] and isTopwick()[i]
+            RSI_H_top += 1
+        if isRSIHigh()[i] and isBottomwick()[i]
+            RSI_H_bottom += 1
+        if isRSILow()[i] and isRedCandle()[i]
+            RSI_L_red+= 1
+        else if isRSILow()[i] and isGreenCandle()[i]
+            RSI_L_green += 1 
+        if isRSILow()[i] and candleSize < ATR * 0.75
+            RSI_L_small += 1
+        else if isRSILow()[i] and candleSize >= ATR * 0.75 and candleSize <= ATR *  1.25
+            RSI_L_avg += 1
+        else if isRSILow()[i] and candleSize > ATR * 1.25
+            RSI_L_large += 1
+        if isRSILow()[i] and isTopwick()[i]
+            RSI_L_top += 1
+        if isRSILow()[i] and isBottomwick()[i]
+            RSI_L_bottom += 1
+        if  i == LookbackBars
+            table.cell(TTM, 0, 9, "RSI High 70", text_color = color.new(color.white, 0), bgcolor = color.new(color.teal , 50))
+            table.cell(TTM, 1, 9, str.tostring (RSI_H_red), text_color = TC, bgcolor =color.rgb(247, 131, 131) )
+            table.cell(TTM, 2, 9, str.tostring (RSI_H_green), text_color = TC, bgcolor = color.rgb(130, 187, 132))
+            table.cell(TTM, 3, 9, str.tostring (RSI_H_small), text_color = TC, bgcolor = color.rgb(243, 242, 177))
+            table.cell(TTM, 4, 9, str.tostring (RSI_H_avg), text_color = TC, bgcolor = color.rgb(245, 224, 184))
+            table.cell(TTM, 5, 9, str.tostring (RSI_H_large), text_color = TC, bgcolor = color.rgb(186, 195, 248))
+            table.cell(TTM, 6, 9, str.tostring (RSI_H_top), text_color = TC, bgcolor = color.rgb(145, 144, 144))
+            table.cell(TTM, 7, 9, str.tostring (RSI_H_bottom), text_color = TC, bgcolor = color.rgb(101, 101, 102))
+            //next ROW
+            table.cell(TTM, 0, 10, "RSI Low 30", text_color = color.new(color.white, 0), bgcolor = color.new(color.teal, 50))
+            table.cell(TTM, 1, 10, str.tostring (RSI_L_red), text_color = TC, bgcolor = color.rgb(247, 209, 209) )
+            table.cell(TTM, 2, 10, str.tostring (RSI_L_green), text_color = TC, bgcolor = color.rgb(182, 211, 183))
+            table.cell(TTM, 3, 10, str.tostring (RSI_L_small), text_color = TC, bgcolor = color.rgb(243, 242, 177))
+            table.cell(TTM, 4, 10, str.tostring (RSI_L_avg), text_color = TC, bgcolor = color.rgb(245, 224, 184))
+            table.cell(TTM, 5, 10, str.tostring (RSI_L_large), text_color = TC, bgcolor = color.rgb(186, 195, 248))
+            table.cell(TTM, 6, 10, str.tostring (RSI_L_top), text_color = TC, bgcolor = color.rgb(145, 144, 144))
+            table.cell(TTM, 7, 10, str.tostring (RSI_L_bottom), text_color = TC, bgcolor = color.rgb(101, 101, 102))
+    if varBlGapUp == true
+        ATR = ATR(ATRLength)[i]
+        candleSize = BodyRange()[i]
+        if isGapUp()[i] and isRedCandle()[i]
+            GAP_U_red += 1
+        else if isGapUp()[i] and isGreenCandle()[i]
+            GAP_U_green += 1
+        if isGapUp()[i] and candleSize < ATR * 0.75
+            GAP_U_small += 1
+        else if isGapUp()[i] and candleSize >= ATR * 0.75 and candleSize <= ATR *  1.25
+            GAP_U_avg += 1
+        else if isGapUp()[i] and candleSize > ATR * 1.25
+            GAP_U_large += 1
+        if isGapUp()[i] and isTopwick()[i]
+            GAP_U_top += 1
+        if isGapUp()[i] and isBottomwick()[i]
+            GAP_U_bottom += 1
+        if i == LookbackBars
+            table.cell(TTM, 0, 11, "Gap Up", text_color = color.new(color.white, 0), bgcolor = color.new(color.teal , 50))
+            table.cell(TTM, 1, 11, str.tostring (GAP_U_red), text_color = TC, bgcolor =color.rgb(247, 131, 131) )
+            table.cell(TTM, 2, 11, str.tostring (GAP_U_green), text_color = TC, bgcolor = color.rgb(130, 187, 132))
+            table.cell(TTM, 3, 11, str.tostring (GAP_U_small), text_color = TC, bgcolor = color.rgb(243, 242, 177))
+            table.cell(TTM, 4, 11, str.tostring (GAP_U_avg), text_color = TC, bgcolor = color.rgb(245, 224, 184))
+            table.cell(TTM, 5, 11, str.tostring (GAP_U_large), text_color = TC, bgcolor = color.rgb(186, 195, 248))
+            table.cell(TTM, 6, 11, str.tostring (GAP_U_top), text_color = TC, bgcolor = color.rgb(145, 144, 144))
+            table.cell(TTM, 7, 11, str.tostring (GAP_U_bottom), text_color = TC, bgcolor = color.rgb(101, 101, 102))
+
+    if varBlGapDown == true
+        ATR = ATR(ATRLength)[i]
+        candleSize = BodyRange()[i]
+        if isGapDown()[i] and isRedCandle()[i]
+            GAP_D_red += 1
+        else if isGapDown()[i] and isGreenCandle()[i]
+            GAP_D_green += 1
+        if isGapDown()[i] and candleSize < ATR * 0.75
+            GAP_D_small += 1
+        else if isGapDown()[i] and candleSize >= ATR * 0.75 and candleSize <= ATR *  1.25
+            GAP_D_avg += 1
+        else if isGapDown()[i] and candleSize > ATR * 1.25
+            GAP_D_large += 1
+        if isGapDown()[i] and isTopwick()[i]
+            GAP_D_top += 1
+        if isGapDown()[i] and isBottomwick()[i]
+            GAP_D_bottom += 1
+
+        if i == LookbackBars
+            table.cell(TTM, 0, 12, "Gap Down", text_color = color.new(color.white, 0), bgcolor = color.new(color.teal , 50))
+            table.cell(TTM, 1, 12, str.tostring (GAP_D_red), text_color = TC, bgcolor =color.rgb(247, 209, 209) )
+            table.cell(TTM, 2, 12, str.tostring (GAP_D_green), text_color = TC, bgcolor = color.rgb(182, 211, 183))
+            table.cell(TTM, 3, 12, str.tostring (GAP_D_small), text_color = TC, bgcolor = color.rgb(243, 242, 177))
+            table.cell(TTM, 4, 12, str.tostring (GAP_D_avg), text_color = TC, bgcolor = color.rgb(245, 224, 184))
+            table.cell(TTM, 5, 12, str.tostring (GAP_D_large), text_color = TC, bgcolor = color.rgb(186, 195, 248))
+            table.cell(TTM, 6, 12, str.tostring (GAP_D_top), text_color = TC, bgcolor = color.rgb(145, 144, 144))
+            table.cell(TTM, 7, 12, str.tostring (GAP_D_bottom), text_color = TC, bgcolor = color.rgb(101, 101, 102))
